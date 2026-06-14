@@ -37,6 +37,7 @@ export default function DriverPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const locationInterval = useRef<NodeJS.Timeout | null>(null);
+  const bookingInterval = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!isLoggedIn()) { router.replace("/login"); return; }
@@ -100,6 +101,9 @@ export default function DriverPage() {
     if (socket.connected) joinRoom(); else socket.once("connect", joinRoom);
     socket.on("booking:new", () => loadBookings(rideId));
 
+    // Poll every 5s as fallback in case socket misses the event
+    bookingInterval.current = setInterval(() => loadBookings(rideId), 5000);
+
     locationInterval.current = setInterval(() => {
       navigator.geolocation?.getCurrentPosition((pos) => {
         const lat = pos.coords.latitude;
@@ -144,6 +148,7 @@ export default function DriverPage() {
     try {
       await ridesApi.end(currentRide.ride_id);
       locationInterval.current && clearInterval(locationInterval.current);
+      bookingInterval.current && clearInterval(bookingInterval.current);
       setStage("idle");
       setCurrentRide(null);
       setBookings([]);
@@ -251,7 +256,7 @@ export default function DriverPage() {
                 <div className="flex justify-between text-sm mt-1">
                   <span className="text-gray-500">Seats filled</span>
                   <span className="font-semibold">
-                    {bookings.length} / {currentRide.total_seats}
+                    {bookings.filter(b => ["confirmed","boarded"].includes(b.status)).length} / {currentRide.total_seats}
                   </span>
                 </div>
               </div>
