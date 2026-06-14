@@ -38,6 +38,8 @@ export default function DriverPage() {
   const [error, setError] = useState("");
   const locationInterval = useRef<NodeJS.Timeout | null>(null);
   const bookingInterval = useRef<NodeJS.Timeout | null>(null);
+  const [tripRequests, setTripRequests] = useState<Ride[]>([]);
+  const tripPollRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!isLoggedIn()) { router.replace("/login"); return; }
@@ -57,7 +59,32 @@ export default function DriverPage() {
         loadBookings(data.ride_id);
       }
     }).catch(() => {});
+
+    // Poll for passenger-organized trip requests every 6s
+    loadTripRequests();
+    tripPollRef.current = setInterval(loadTripRequests, 6000);
+    return () => { tripPollRef.current && clearInterval(tripPollRef.current); };
   }, [router]);
+
+  async function loadTripRequests() {
+    try {
+      const { data } = await ridesApi.nearby(59.9139, 10.7522);
+      const requests = (data as Ride[]).filter(
+        (r) => r.ride_type === "future" && r.status === "live" && !r.assigned_driver_id
+      );
+      setTripRequests(requests);
+    } catch { /* silent */ }
+  }
+
+  async function handleClaimTrip(rideId: string) {
+    try {
+      await ridesApi.claim(rideId);
+      loadTripRequests();
+      alert("Trip claimed! The passengers have been notified.");
+    } catch (e: unknown) {
+      alert((e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Could not claim trip.");
+    }
+  }
 
   function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
 
@@ -174,6 +201,42 @@ export default function DriverPage() {
         <aside className="w-96 bg-white border-r border-gray-200 flex flex-col overflow-y-auto">
           {stage === "idle" && (
             <>
+              {/* Passenger trip requests */}
+              {tripRequests.length > 0 && (
+                <div className="border-b border-gray-100">
+                  <div className="p-4 bg-blue-50">
+                    <h2 className="font-bold text-gray-900 text-sm">Trip requests ({tripRequests.length})</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">Passengers looking for a driver</p>
+                  </div>
+                  <div className="p-3 space-y-2">
+                    {tripRequests.map((r) => (
+                      <div key={r.ride_id} className="bg-white border border-blue-200 rounded-xl p-3">
+                        <p className="text-sm font-semibold text-gray-900">→ {r.destination_address}</p>
+                        {r.pickup_address && (
+                          <p className="text-xs text-gray-500 mt-0.5">Pickup: {r.pickup_address}</p>
+                        )}
+                        <div className="flex items-center justify-between mt-1.5">
+                          <span className="text-xs text-gray-400">
+                            {r.total_seats - r.seats_remaining} passengers · {(r.base_fare / 100).toFixed(0)} kr base
+                          </span>
+                          {r.scheduled_at && (
+                            <span className="text-xs text-gray-400">
+                              {new Date(r.scheduled_at).toLocaleString("no-NO", { dateStyle: "short", timeStyle: "short" })}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleClaimTrip(r.ride_id)}
+                          className="w-full mt-2 bg-brand hover:bg-brand-light text-white text-xs font-bold rounded-lg py-2 transition"
+                        >
+                          Accept trip
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="p-5 border-b border-gray-100">
                 <h2 className="font-bold text-gray-900 text-lg">Post a live ride</h2>
                 <p className="text-xs text-gray-400 mt-0.5">Broadcast your route so passengers can join</p>

@@ -55,7 +55,7 @@ function makeLine(oLat: number, oLng: number, dLat: number, dLng: number) {
 
 // ── Create Trip Form ─────────────────────────────────────────────────────────
 
-function CreateTripForm({ onCreated }: { onCreated: () => void }) {
+function CreateTripForm({ onCreated }: { onCreated: (ride: import("@/lib/api").Ride) => void }) {
   const [pickupAddress, setPickupAddress] = useState("");
   const [pickupLat, setPickupLat] = useState<number | null>(null);
   const [pickupLng, setPickupLng] = useState<number | null>(null);
@@ -129,7 +129,7 @@ function CreateTripForm({ onCreated }: { onCreated: () => void }) {
     try {
       const scheduledAt = new Date(`${date}T${time}:00`);
       const deadlineAt = new Date(scheduledAt.getTime() - 3_600_000);
-      await ridesApi.post({
+      const { data } = await ridesApi.post({
         ride_type: "future",
         origin_lat: pickupLat,
         origin_lng: pickupLng,
@@ -146,7 +146,7 @@ function CreateTripForm({ onCreated }: { onCreated: () => void }) {
         pickup_lat: pickupLat,
         pickup_lng: pickupLng,
       });
-      onCreated();
+      onCreated(data as unknown as import("@/lib/api").Ride);
     } catch {
       setError("Failed to create trip. Please try again.");
     } finally {
@@ -352,7 +352,16 @@ export default function TripPage() {
       <div className="flex flex-col h-screen">
         <Navbar />
         <div className="flex-1 overflow-y-auto bg-gray-50">
-          <CreateTripForm onCreated={() => { setPageState("loading"); loadTrip(); }} />
+          <CreateTripForm onCreated={(newRide) => {
+            setRide(newRide);
+            setPageState("active");
+            loadBookings(newRide.ride_id);
+            connectSocket();
+            const socket = getSocket();
+            socket.emit("join:ride", { ride_id: newRide.ride_id });
+            socket.on("driver:location", (loc: { lat: number; lng: number }) => setDriverPos([loc.lat, loc.lng]));
+            pollRef.current = setInterval(() => loadBookings(newRide.ride_id), 5000);
+          }} />
         </div>
       </div>
     );
