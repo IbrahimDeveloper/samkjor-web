@@ -8,6 +8,7 @@ const allLinks = [
   { href: "/map",      label: "Map",           roles: ["passenger", "both"] },
   { href: "/find",     label: "Find a ride",   roles: ["passenger", "both"] },
   { href: "/organize", label: "Organize trip", roles: ["passenger", "both"] },
+  { href: "/trip",     label: "My trip",       roles: ["passenger", "both"] },
   { href: "/driver",   label: "Driver",        roles: ["driver"] },
 ];
 

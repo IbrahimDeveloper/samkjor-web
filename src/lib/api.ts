@@ -17,6 +17,7 @@ export interface Ride {
   ride_id: string;
   ride_type: "live" | "future";
   status: string;
+  initiator_id: string;
   initiator_name: string;
   initiator_rating: number;
   destination_address: string;
@@ -28,6 +29,10 @@ export interface Ride {
   origin_lng: number;
   dest_lat: number;
   dest_lng: number;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
+  pickup_address: string | null;
+  assigned_driver_id: string | null;
   route_polyline_geo: GeoLineString;
 }
 
@@ -52,6 +57,7 @@ export interface MatchResult {
 export interface Booking {
   booking_id: string;
   ride_id: string;
+  passenger_id: string;
   status: string;
   fare_at_booking: number | null;
   pickup_address: string;
@@ -60,7 +66,7 @@ export interface Booking {
 }
 
 export const authApi = {
-  register: (data: { name: string; phone: string; password: string; role: string }) =>
+  register: (data: { name: string; phone: string; password: string; role: string; email?: string }) =>
     api.post<{ token: string; user_id: string; role: string }>("/auth/register", data),
   login: (data: { phone: string; password: string }) =>
     api.post<{ token: string; user_id: string; role: string }>("/auth/login", data),
@@ -75,7 +81,9 @@ export const ridesApi = {
   end: (id: string) => api.post(`/rides/${id}/end`),
   cancel: (id: string) => api.post(`/rides/${id}/cancel`),
   claim: (id: string) => api.post<Ride>(`/rides/${id}/claim`),
+  start: (id: string) => api.post<Ride>(`/rides/${id}/start`),
   myActive: () => api.get<Ride | null>("/rides/my-active"),
+  myTrip: () => api.get<Ride | null>("/rides/my-trip"),
   postLocation: (id: string, lat: number, lng: number) =>
     api.post(`/rides/${id}/location`, { lat, lng }),
 };
