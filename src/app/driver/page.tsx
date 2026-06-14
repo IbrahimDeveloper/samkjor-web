@@ -96,6 +96,8 @@ export default function DriverPage() {
     // Broadcast via WebSocket + REST every 3 s
     connectSocket();
     const socket = getSocket();
+    const joinRoom = () => socket.emit("join:ride", { ride_id: rideId });
+    if (socket.connected) joinRoom(); else socket.once("connect", joinRoom);
     socket.on("booking:new", () => loadBookings(rideId));
 
     locationInterval.current = setInterval(() => {
